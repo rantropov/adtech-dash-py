@@ -1,14 +1,11 @@
 from itertools import combinations_with_replacement, islice
+import json
 import numpy as np
 from sklearn.externals import joblib
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer, Normalizer
-
-
-NUM_BITS_FOR_HASHING = 24
-CLASSES = (0.0, 1.0,)
 
 
 def prepend_feature_names(feature_names, row):
@@ -73,8 +70,13 @@ def batched_lines(batch_size, parsed_lines):
 
 def main():
     # Get training and model filenames
-    train_filename = 'train_w_header.txt'
-    model_filename = 'model.pkl'
+    with open('model_metadata.json') as f:
+        config = json.load(f)
+
+    CLASSES = config['classes']
+    model_filename = config['modelFilename']
+    NUM_BITS_FOR_HASHING = config['numBitsForHashing']
+    train_filename = config['trainFilename']
 
     with open(train_filename) as f:
         lines = (tuple(line.rstrip('\n').split('\t')) for line in f)

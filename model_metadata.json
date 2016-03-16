@@ -1,0 +1,1 @@
+{"classifier":"SGDClassifier","trainFilename":"train_w_header.txt","modelFilename":"model.pkl","numBitsForHashing":24,"classes":[0,1],"sklearnVersion":0.17}
