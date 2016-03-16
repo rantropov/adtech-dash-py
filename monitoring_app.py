@@ -77,7 +77,7 @@ def post_received_ad_event(value):
 
 
 @app.route('/fscore')
-def get_median():
+def get_fscore():
     """Gets fscore from database"""
     pass
 
