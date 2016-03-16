@@ -1,11 +1,13 @@
 from itertools import combinations_with_replacement, islice
 import json
 import numpy as np
+import sklearn
 from sklearn.externals import joblib
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer, Normalizer
+import sys
 
 
 def prepend_feature_names(feature_names, row):
@@ -73,10 +75,16 @@ def main():
     with open('model_metadata.json') as f:
         config = json.load(f)
 
-    CLASSES = config['classes']
+    CLASSES = [float(x) for x in config['classes']]
     model_filename = config['modelFilename']
     NUM_BITS_FOR_HASHING = config['numBitsForHashing']
     train_filename = config['trainFilename']
+    sklearn_version_expected = config['sklearnVersion']
+
+    # If sklearn version is wrong, exit without training
+    if float(sklearn.__version__) != float(sklearn_version_expected):
+        print "Wrong sklearn version"
+        sys.exit(0)
 
     with open(train_filename) as f:
         lines = (tuple(line.rstrip('\n').split('\t')) for line in f)
