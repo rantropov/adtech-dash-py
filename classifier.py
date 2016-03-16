@@ -8,9 +8,7 @@ from sklearn.preprocessing import FunctionTransformer, Normalizer
 
 
 NUM_BITS_FOR_HASHING = 24
-FEATURE_NAMES = tuple(
-    ['i' + str(i) for i in xrange(1, 14)] +
-    ['c' + str(i) for i in xrange(1, 27)])
+CLASSES = (0.0, 1.0,)
 
 
 def prepend_feature_names(feature_names, row):
@@ -27,67 +25,90 @@ def quad_features(row, delimiter=':'):
             2))
 
 
-def namespace_and_quad_features(X):
+def namespace_and_quad_features(X, feature_names):
     def myfunc(row):
         return quad_features(
             prepend_feature_names(
-                FEATURE_NAMES,
+                feature_names,
                 row))
+
     for row in X:
         yield myfunc(row)
 
 
+def make_pre_processing_pipeline(feature_names, num_bits_for_hashing):
+    def namespace_and_quad_features_names_fixed(X):
+        return namespace_and_quad_features(X, feature_names)
+
+    namespace_and_quad_feature_transformer = FunctionTransformer(
+        namespace_and_quad_features_names_fixed,
+        validate=False
+    )
+
+    hasher = FeatureHasher(
+        input_type='string',
+        n_features=2 ** num_bits_for_hashing)
+
+    result = make_pipeline(
+        namespace_and_quad_feature_transformer,
+        hasher,
+        Normalizer()
+    )
+
+    return result
+
+
 def take(n, iterable):
-    "Return first n items of the iterable as a list"
+    """Return first n items of the iterable as a list"""
     return list(islice(iterable, n))
 
 
+def batched_lines(batch_size, parsed_lines):
+        batch = take(batch_size, parsed_lines)
+        if len(batch) > 0:
+            rows = [x for (x, _) in batch]
+            labels = np.array([y for (_, y) in batch])
+            yield rows, labels
+
+
 def main():
-    with open('dac_sample.txt') as f:
+    # Get training and model filenames
+    train_filename = 'train_w_header.txt'
+    model_filename = 'model.pkl'
+
+    with open(train_filename) as f:
         lines = (tuple(line.rstrip('\n').split('\t')) for line in f)
+        parsed_lines = ((line[1:], float(line[0])) for line in lines)
 
-        namespace_and_quad_feature_transformer = FunctionTransformer(
-            namespace_and_quad_features,
-            validate=False
+        # Parse header and get feature names for namespacing
+        header = next(lines)
+        FEATURE_NAMES = tuple(header[1:])
+
+        # Build pipeline
+        pre_processing_pipeline = make_pre_processing_pipeline(
+            feature_names=FEATURE_NAMES,
+            num_bits_for_hashing=NUM_BITS_FOR_HASHING
         )
 
-        hasher = FeatureHasher(
-            input_type='string',
-            n_features=2 ** NUM_BITS_FOR_HASHING)
-
-        preprocessing_pipeline = make_pipeline(
-            namespace_and_quad_feature_transformer,
-            hasher,
-            Normalizer()
-        )
-
-        def first_n(n):
-            for _ in xrange(n):
-                line = next(lines)
-                y = float(line[0])
-                x = line[1:]
-                yield x, y
-
-        first_30k = first_n(30000)
-
+        # Instantiate classifier
+        # (a logistic regression model with Stochastic Gradient Descent)
         clf = SGDClassifier(loss='log')
 
+        # Train model in mini-batches
         batch_size = 8000
 
-        while True:
-            batch = take(batch_size, first_30k)
-            if len(batch) > 0:
-                X = [x for (x, _) in batch]
-                Y = np.array([y for (_, y) in batch])
-                processed_x = preprocessing_pipeline.fit_transform(X)
-                clf.partial_fit(processed_x, Y, classes=[0.0, 1.0])
-            else:
-                break
+        for rows, labels in batched_lines(batch_size, parsed_lines):
+            processed_rows = pre_processing_pipeline.fit_transform(rows)
+            clf.partial_fit(processed_rows, labels, classes=CLASSES)
 
         print clf
 
-        joblib.dump(clf, 'model.pkl')
-        joblib.load('model.pkl')
+        # Save model
+        joblib.dump(clf, model_filename)
+
+        # Reload just to make sure it serializes and de- properly
+        joblib.load(model_filename)
+
 
 if __name__ == '__main__':
     main()
