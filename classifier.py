@@ -1,5 +1,6 @@
-from itertools import combinations_with_replacement
+from itertools import combinations_with_replacement, islice
 import numpy as np
+from sklearn.externals import joblib
 from sklearn.feature_extraction import FeatureHasher
 from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import make_pipeline
@@ -36,9 +37,14 @@ def namespace_and_quad_features(X):
         yield myfunc(row)
 
 
+def take(n, iterable):
+    "Return first n items of the iterable as a list"
+    return list(islice(iterable, n))
+
+
 def main():
     with open('dac_sample.txt') as f:
-        lines = [line.rstrip('\n').split('\t')[1:] for line in f]
+        lines = (tuple(line.rstrip('\n').split('\t')) for line in f)
 
         namespace_and_quad_feature_transformer = FunctionTransformer(
             namespace_and_quad_features,
@@ -55,9 +61,33 @@ def main():
             Normalizer()
         )
 
-        print preprocessing_pipeline.fit_transform(lines[:10000]).shape
-    print preprocessing_pipeline
+        def first_n(n):
+            for _ in xrange(n):
+                line = next(lines)
+                y = float(line[0])
+                x = line[1:]
+                yield x, y
 
+        first_30k = first_n(30000)
+
+        clf = SGDClassifier(loss='log')
+
+        batch_size = 8000
+
+        while True:
+            batch = take(batch_size, first_30k)
+            if len(batch) > 0:
+                X = [x for (x, _) in batch]
+                Y = np.array([y for (_, y) in batch])
+                processed_x = preprocessing_pipeline.fit_transform(X)
+                clf.partial_fit(processed_x, Y, classes=[0.0, 1.0])
+            else:
+                break
+
+        print clf
+
+        joblib.dump(clf, 'model.pkl')
+        joblib.load('model.pkl')
 
 if __name__ == '__main__':
     main()
