@@ -64,7 +64,7 @@ We then apply the "Hashing Trick": this turns an observation vector in to a bit 
 		def hashing_trick(vector v, hash_function h, int num_bits):
 			result = array of 2 ** num_bits 0
 			for each index j of v:
-				i = absolute value of (h(v(j)) mod num_bits)
+				i = absolute value of (h(v(j)) mod (2 ** num_bits))
 				result[i] += 1
 			return result
 			
