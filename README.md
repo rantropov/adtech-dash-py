@@ -93,5 +93,19 @@ We want a monitoring system that loads our model and implements the following AP
 		
 We'll use a web application and back it with a relational database. We use `Flask` and `SQLite/PostgreSQL` and probabily deploy on Amazon Web Services or some other host.
 
+Our database looks like this:
+
+Table received_ads
+
+	id * | received_at | true_label | text of features | pred_label
+
+	create index on received_ads.received_at
+
+View metrics on received_ads
+	
+	true_pos | true_neg | false_pos | false_neg | precision | recall | f_score
+
+See if it takes a while. If so, we can create a table that materializes the result for each minute, with a query issued by recurrent process (e.g. a cron job).
+
 
 
