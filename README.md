@@ -107,5 +107,7 @@ View metrics on received_ads
 
 See if it takes a while. If so, we can create a table that materializes the result for each minute, with a query issued by recurrent process (e.g. a cron job).
 
+If keeping all the post requests are an issue, we should break up the API into two distinct subsystems: 1. a persist queue (like `Kafka`) to store POST requests, and 2. a serving database to handle GET requests. We should eventually also repeatedly backup the serving database.
+
 
 
